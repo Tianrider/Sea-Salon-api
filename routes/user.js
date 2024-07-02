@@ -51,6 +51,35 @@ router.post("/login", multer().none(), async (req, res) => {
 });
 
 router.get("/all", async (req, res) => {
+	// check only admin can access
+
+	const cookie = req.cookies["token"];
+
+	if (!cookie) {
+		return res.status(401).send("Not authenticated");
+	}
+
+	try {
+		const claims = jwt.verify(cookie, process.env.TOKEN_SECRET);
+
+		if (!claims) {
+			return res.status(401).send("Not authenticated");
+		}
+
+		const user = await User.findOne({_id: claims.id});
+		if (user.role !== "admin") {
+			return res.status(401).send("Not authenticated");
+		}
+	} catch (error) {
+		if (error.name === "TokenExpiredError") {
+			return res.status(401).send("Token expired");
+		} else if (error.name === "JsonWebTokenError") {
+			return res.status(401).send("Invalid token");
+		} else {
+			return res.status(500).send("Internal server error");
+		}
+	}
+
 	const users = await User.find();
 
 	res.json(users);
